@@ -154,6 +154,7 @@ class VoiceService(val events: VoiceApplicationListener) : VoiceSession {
          * Tear down audio device management and restore previous volume stream
          */
         audioSwitch!!.stop()
+        handleCancel()
     }
 
     private fun handleCancel() {

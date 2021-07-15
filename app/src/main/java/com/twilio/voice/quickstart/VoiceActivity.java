@@ -38,6 +38,9 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.iid.FirebaseInstanceId;
+import com.optisol.twilio_voice.OptTwilioFactory;
+import com.optisol.twilio_voice.VoiceApplicationListener;
+import com.optisol.twilio_voice.VoiceSession;
 import com.twilio.audioswitch.AudioDevice;
 import com.twilio.audioswitch.AudioSwitch;
 import com.twilio.voice.Call;
@@ -48,6 +51,9 @@ import com.twilio.voice.RegistrationException;
 import com.twilio.voice.RegistrationListener;
 import com.twilio.voice.Voice;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,11 +63,13 @@ import java.util.Locale;
 
 import kotlin.Unit;
 
-public class VoiceActivity extends AppCompatActivity {
+public class VoiceActivity extends AppCompatActivity implements VoiceApplicationListener {
 
     private static final String TAG = "VoiceActivity";
     private static final int MIC_PERMISSION_REQUEST_CODE = 1;
     private String accessToken = "PASTE_YOUR_ACCESS_TOKEN_HERE";
+
+    private VoiceSession voiceSession;
 
     /*
      * Audio device management
@@ -149,6 +157,9 @@ public class VoiceActivity extends AppCompatActivity {
         } else {
             registerForCallInvites();
         }
+
+
+        voiceSession =  OptTwilioFactory.INSTANCE.createVoiceSession(this);
     }
 
     @Override
@@ -295,6 +306,42 @@ public class VoiceActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public void onRinging(@NotNull Call call) {
+
+
+    }
+
+    @Override
+    public void onConnectFailure(@NotNull String message) {
+
+    }
+
+    @Override
+    public void onConnected(@NotNull Call call) {
+
+    }
+
+    @Override
+    public void onReconnecting(@NotNull Call call, @Nullable String message) {
+
+    }
+
+    @Override
+    public void onReconnected(@NotNull Call call) {
+
+    }
+
+    @Override
+    public void onDisconnected(@NotNull Call call, @NotNull String message) {
+
+    }
+
+    @Override
+    public void onCallWarning(@NotNull Call call, @NotNull String message) {
+
+    }
+
     private class VoiceBroadcastReceiver extends BroadcastReceiver {
 
         @Override
@@ -400,29 +447,32 @@ public class VoiceActivity extends AppCompatActivity {
      * Accept an incoming Call
      */
     private void answer() {
-        SoundPoolManager.getInstance(this).stopRinging();
+      /*  SoundPoolManager.getInstance(this).stopRinging();
         notificationManager.cancel(activeCallNotificationId);
         setCallUI();
         if (alertDialog != null && alertDialog.isShowing()) {
             alertDialog.dismiss();
-        }
+        }*/
+        voiceSession.answer(getApplicationContext());
     }
 
     /*
      * Disconnect from Call
      */
     private void disconnect() {
-
+voiceSession.disconnect();
     }
 
     private void hold(Boolean hold) {
 
-            applyFabState(holdActionFab, hold);
+           // applyFabState(holdActionFab, hold);
+        voiceSession.hold();
 
     }
 
     private void mute(Boolean mute) {
-            applyFabState(muteActionFab, mute);
+        //    applyFabState(muteActionFab, mute);
+        voiceSession.mute();
 
     }
 
