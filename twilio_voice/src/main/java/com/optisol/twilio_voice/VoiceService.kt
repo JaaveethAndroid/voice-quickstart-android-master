@@ -1,74 +1,51 @@
-package com.optisol.twilio_voice;
-import android.app.AlertDialog;
-import android.app.NotificationManager;
-import android.content.Context;
-import android.util.Log;
-import android.view.MenuItem;
-import android.widget.Chronometer;
+package com.optisol.twilio_voice
 
-import androidx.annotation.NonNull;
-import com.twilio.audioswitch.AudioDevice;
-import com.twilio.audioswitch.AudioSwitch;
-import com.twilio.voice.Call;
-import com.twilio.voice.CallException;
-import com.twilio.voice.CallInvite;
-import com.twilio.voice.ConnectOptions;
-import com.twilio.voice.Voice;
+import android.app.AlertDialog
+import android.app.NotificationManager
+import android.content.Context
+import android.content.DialogInterface
+import android.util.Log
+import android.view.MenuItem
+import android.widget.Chronometer
+import com.twilio.audioswitch.AudioSwitch
+import com.twilio.voice.*
+import com.twilio.voice.Call.CallQualityWarning
+import java.util.*
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-
-
-public class VoiceService {
-
-    private static final String TAG = "VoiceActivity";
-
+class VoiceService(val events: VoiceApplicationListener) : VoiceSession {
     /*
      * Audio device management
      */
-    private AudioSwitch audioSwitch;
-    private int savedVolumeControlStream;
-    private MenuItem audioDeviceMenuItem;
-
-    private boolean isReceiverRegistered = false;
+    private val audioSwitch: AudioSwitch? = null
+    private val savedVolumeControlStream = 0
+    private val audioDeviceMenuItem: MenuItem? = null
+    private val isReceiverRegistered = false
 
     // Empty HashMap, never populated for the Quickstart
-    HashMap<String, String> params = new HashMap<>();
-
-    private Chronometer chronometer;
-
-    private NotificationManager notificationManager;
-    private AlertDialog alertDialog;
-    private CallInvite activeCallInvite;
-    private Call activeCall;
-    private int activeCallNotificationId;
-    Call.Listener callListener = callListener();
-
-
-
-    private void startCall(Context context,HashMap<String, String> params,String accessToken){
-        ConnectOptions connectOptions = new ConnectOptions.Builder(accessToken)
-                .params(params)
-                .build();
-        activeCall = Voice.connect(context, connectOptions, callListener);
+    var params = HashMap<String, String>()
+    private val chronometer: Chronometer? = null
+    private val notificationManager: NotificationManager? = null
+    private val alertDialog: AlertDialog? = null
+    private val activeCallInvite: CallInvite? = null
+    private var activeCall: Call? = null
+    private val activeCallNotificationId = 0
+    var callListener = callListener()
+    override fun startCall(context: Context, params: HashMap<String, String>, accessToken: String) {
+        val connectOptions = ConnectOptions.Builder(accessToken)
+            .params(params)
+            .build()
+        activeCall = Voice.connect(context, connectOptions, callListener)
     }
 
-
-
-    private void answer(Context context) {
-        activeCallInvite.accept(context, callListener);
-        if (alertDialog != null && alertDialog.isShowing()) {
-            alertDialog.dismiss();
+    override fun answer(context: Context) {
+        activeCallInvite!!.accept(context, callListener)
+        if (alertDialog != null && alertDialog.isShowing) {
+            alertDialog.dismiss()
         }
     }
 
-
-    private Call.Listener callListener() {
-        return new Call.Listener() {
+    private fun callListener(): Call.Listener {
+        return object : Call.Listener {
             /*
              * This callback is emitted once before the Call.Listener.onConnected() callback when
              * the callee is being alerted of a Call. The behavior of this callback is determined by
@@ -82,9 +59,8 @@ public class VoiceService {
              * Call.Listener.onConnected callback immediately after Call.Listener.onRinging() is
              * raised, irrespective of the value of answerOnBridge being set to true or false
              */
-            @Override
-            public void onRinging(@NonNull Call call) {
-                Log.d(TAG, "Ringing");
+            override fun onRinging(call: Call) {
+                Log.d(TAG, "Ringing")
                 /*
                  * When [answerOnBridge](https://www.twilio.com/docs/voice/twiml/dial#answeronbridge)
                  * is enabled in the <Dial> TwiML verb, the caller will not hear the ringback while
@@ -92,53 +68,55 @@ public class VoiceService {
                  * can use the `SoundPoolManager` to play custom audio files between the
                  * `Call.Listener.onRinging()` and the `Call.Listener.onConnected()` callbacks.
                  */
-
+                events.onRinging(call)
             }
 
-            @Override
-            public void onConnectFailure(@NonNull Call call, @NonNull CallException error) {
-                audioSwitch.deactivate();
+            override fun onConnectFailure(call: Call, error: CallException) {
+                audioSwitch!!.deactivate()
+                Log.d(TAG, "Connect failure")
+                val message = String.format(
+                    Locale.US,
+                    "Call Error: %d, %s",
+                    error.errorCode,
+                    error.message
+                )
+                Log.e(TAG, message)
+                events.onConnectFailure(message)
+            }
 
-                Log.d(TAG, "Connect failure");
-                String message = String.format(
+            override fun onConnected(call: Call) {
+                audioSwitch!!.activate()
+                Log.d(TAG, "Connected")
+                activeCall = call
+                events.onConnected(call)
+            }
+
+            override fun onReconnecting(call: Call, callException: CallException) {
+                Log.d(TAG, "onReconnecting")
+                events.onReconnecting(call,callException.message)
+            }
+
+            override fun onReconnected(call: Call) {
+                Log.d(TAG, "onReconnected")
+                events.onReconnected(call)
+            }
+
+            override fun onDisconnected(call: Call, error: CallException?) {
+                audioSwitch!!.deactivate()
+                Log.d(TAG, "Disconnected")
+                if (error != null) {
+                    val message = String.format(
                         Locale.US,
                         "Call Error: %d, %s",
-                        error.getErrorCode(),
-                        error.getMessage());
-                Log.e(TAG, message);
+                        error.errorCode,
+                        error.message
+                    )
+                    Log.e(TAG, message)
+                    events.onDisconnected(call,message)
 
-            }
-
-            @Override
-            public void onConnected(@NonNull Call call) {
-                audioSwitch.activate();
-                Log.d(TAG, "Connected");
-                activeCall = call;
-            }
-
-            @Override
-            public void onReconnecting(@NonNull Call call, @NonNull CallException callException) {
-                Log.d(TAG, "onReconnecting");
-            }
-
-            @Override
-            public void onReconnected(@NonNull Call call) {
-                Log.d(TAG, "onReconnected");
-            }
-
-            @Override
-            public void onDisconnected(@NonNull Call call, CallException error) {
-                audioSwitch.deactivate();
-                Log.d(TAG, "Disconnected");
-                if (error != null) {
-                    String message = String.format(
-                            Locale.US,
-                            "Call Error: %d, %s",
-                            error.getErrorCode(),
-                            error.getMessage());
-                    Log.e(TAG, message);
                 }
             }
+
             /*
              * currentWarnings: existing quality warnings that have not been cleared yet
              * previousWarnings: last set of warnings prior to receiving this callback
@@ -150,95 +128,90 @@ public class VoiceService {
              * Newly raised warnings = currentWarnings - intersection = { A }
              * Newly cleared warnings = previousWarnings - intersection = { C }
              */
-            public void onCallQualityWarningsChanged(@NonNull Call call,
-                                                     @NonNull Set<Call.CallQualityWarning> currentWarnings,
-                                                     @NonNull Set<Call.CallQualityWarning> previousWarnings) {
-
-                if (previousWarnings.size() > 1) {
-                    Set<Call.CallQualityWarning> intersection = new HashSet<>(currentWarnings);
-                    currentWarnings.removeAll(previousWarnings);
-                    intersection.retainAll(previousWarnings);
-                    previousWarnings.removeAll(intersection);
+            override fun onCallQualityWarningsChanged(
+                call: Call,
+                currentWarnings: MutableSet<CallQualityWarning>,
+                previousWarnings: MutableSet<CallQualityWarning>
+            ) {
+                if (previousWarnings.size > 1) {
+                    val intersection: MutableSet<CallQualityWarning> = HashSet(currentWarnings)
+                    currentWarnings.removeAll(previousWarnings)
+                    intersection.retainAll(previousWarnings)
+                    previousWarnings.removeAll(intersection)
                 }
-
-                String message = String.format(
-                        Locale.US,
-                        "Newly raised warnings: " + currentWarnings + " Clear warnings " + previousWarnings);
-                Log.e(TAG, message);
+                val message = String.format(
+                    Locale.US,
+                    "Newly raised warnings: $currentWarnings Clear warnings $previousWarnings"
+                )
+                events.onCallWarning(call,message)
+                Log.e(TAG, message)
             }
-        };
-    }
-
-
-
-    public void onDestroy() {
-        /*
-         * Tear down audio device management and restore previous volume stream
-         */
-        audioSwitch.stop();
-    }
-
-
-    private void handleCancel() {
-        if (alertDialog != null && alertDialog.isShowing()) {
-            alertDialog.cancel();
         }
     }
 
+    override fun onDestroy() {
+        /*
+         * Tear down audio device management and restore previous volume stream
+         */
+        audioSwitch!!.stop()
+    }
 
-
+    private fun handleCancel() {
+        if (alertDialog != null && alertDialog.isShowing) {
+            alertDialog.cancel()
+        }
+    }
 
     /*
      * Disconnect from Call
      */
-    private void disconnect() {
+    override fun disconnect() {
         if (activeCall != null) {
-            activeCall.disconnect();
-            activeCall = null;
+            activeCall!!.disconnect()
+            activeCall = null
         }
     }
 
-    private void hold() {
+    override fun hold() {
         if (activeCall != null) {
-            boolean hold = !activeCall.isOnHold();
-            activeCall.hold(hold);
+            val hold = !activeCall!!.isOnHold
+            activeCall!!.hold(hold)
         }
     }
 
-    private void mute() {
+    override fun mute() {
         if (activeCall != null) {
-            boolean mute = !activeCall.isMuted();
-            activeCall.mute(mute);
+            val mute = !activeCall!!.isMuted
+            activeCall!!.mute(mute)
         }
     }
-
 
     /*
      * Show the current available audio devices.
      */
-    private void showAudioDevices(Context context) {
-        AudioDevice selectedDevice = audioSwitch.getSelectedAudioDevice();
-        List<AudioDevice> availableAudioDevices = audioSwitch.getAvailableAudioDevices();
-
+    private fun showAudioDevices(context: Context) {
+        val selectedDevice = audioSwitch!!.selectedAudioDevice
+        val availableAudioDevices = audioSwitch.availableAudioDevices
         if (selectedDevice != null) {
-            int selectedDeviceIndex = availableAudioDevices.indexOf(selectedDevice);
-
-            ArrayList<String> audioDeviceNames = new ArrayList<>();
-            for (AudioDevice a : availableAudioDevices) {
-                audioDeviceNames.add(a.getName());
+            val selectedDeviceIndex = availableAudioDevices.indexOf(selectedDevice)
+            val audioDeviceNames = ArrayList<String>()
+            for (a in availableAudioDevices) {
+                audioDeviceNames.add(a.name)
             }
-
-            new AlertDialog.Builder(context)
-                    .setTitle(R.string.select_device)
-                    .setSingleChoiceItems(
-                            audioDeviceNames.toArray(new CharSequence[0]),
-                            selectedDeviceIndex,
-                            (dialog, index) -> {
-                                dialog.dismiss();
-                                AudioDevice selectedAudioDevice = availableAudioDevices.get(index);
-                                audioSwitch.selectDevice(selectedAudioDevice);
-                            }).create().show();
+            AlertDialog.Builder(context)
+                .setTitle(R.string.select_device)
+                .setSingleChoiceItems(
+                    audioDeviceNames.toTypedArray<CharSequence>(),
+                    selectedDeviceIndex
+                ) { dialog: DialogInterface, index: Int ->
+                    dialog.dismiss()
+                    val selectedAudioDevice = availableAudioDevices[index]
+                    audioSwitch.selectDevice(selectedAudioDevice)
+                }.create().show()
         }
     }
 
+    companion object {
+        private const val TAG = "VoiceActivity"
+    }
 }
