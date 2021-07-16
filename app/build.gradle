@@ -29,8 +29,8 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.twilio.voice.quickstart"
-        minSdkVersion versions.minSdk
+        applicationId "com.optisol.twilioApp"
+        minSdkVersion 21
         targetSdkVersion versions.targetSdk
         versionCode 1
         versionName "1.0"
